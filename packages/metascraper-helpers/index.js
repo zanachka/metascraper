@@ -10,13 +10,13 @@ const {
   isArray,
   isEmpty,
   isNumber,
+  isBoolean,
   isString,
   lte,
   replace,
   size,
   toLower,
-  toString,
-  trim
+  toString
 } = require('lodash')
 
 const memoizeOne = require('memoize-one').default || require('memoize-one')
@@ -131,12 +131,13 @@ const normalizeUrl = (baseUrl, relativePath, opts) => {
   }
 }
 
-const removeBy = flow([value => value.replace(REGEX_BY, ''), trim])
+const removeBy = flow([
+  value => value.replace(REGEX_BY, ''),
+  condenseWhitespace
+])
 
-const removeSeparator = title => {
-  const newTitle = (REGEX_TITLE_SEPARATOR.exec(title) || [])[0] || title
-  return newTitle.trim()
-}
+const removeSeparator = title =>
+  condenseWhitespace((REGEX_TITLE_SEPARATOR.exec(title) || [])[0] || title)
 
 const createTitle = flow([condenseWhitespace, smartquotes])
 
@@ -148,12 +149,12 @@ const titleize = (src, opts = {}) => {
   return title
 }
 
-const defaultFn = el => el.text().trim()
-
-const $filter = ($, domNodes, fn = defaultFn) => {
+const $filter = ($, domNodes, fn = $filter.fn) => {
   const el = domNodes.filter((i, el) => fn($(el))).first()
   return fn(el)
 }
+
+$filter.fn = el => condenseWhitespace(el.text())
 
 const isAuthor = (str, opts = { relative: false }) =>
   !isUrl(str, opts) &&
@@ -161,7 +162,8 @@ const isAuthor = (str, opts = { relative: false }) =>
   isString(str) &&
   lte(size(str), AUTHOR_MAX_LENGTH)
 
-const getAuthor = (str, opts = { removeBy: true }) => titleize(str, opts)
+const getAuthor = (str, { removeBy = true, ...opts } = {}) =>
+  titleize(str, { removeBy, ...opts })
 
 const protocol = url => {
   const { protocol = '' } = urlObject(url)
@@ -215,7 +217,7 @@ const getDescription = (
 
 const publisher = value => isString(value) && condenseWhitespace(value)
 
-const author = value => isAuthor(value) && getAuthor(value)
+const author = (value, opts) => isAuthor(value) && getAuthor(value, opts)
 
 const url = (value, { url = '' } = {}) => {
   if (isEmpty(value)) return null
@@ -234,7 +236,7 @@ const date = value => {
   if (!(isString(value) || isNumber(value))) return undefined
 
   // remove whitespace for easier parsing
-  if (isString(value)) trim(value)
+  if (isString(value)) value = condenseWhitespace(value)
 
   // convert isodates to restringify, because sometimes they are truncated
   if (isIso(value)) return new Date(value).toISOString()
@@ -260,7 +262,7 @@ const date = value => {
 
 const lang = value => {
   if (isEmpty(value)) return undefined
-  const lang = toLower(value.trim().substring(0, 2))
+  const lang = toLower(condenseWhitespace(value).substring(0, 2))
   return includes(langs, lang) ? lang : undefined
 }
 
@@ -300,10 +302,10 @@ const $jsonld = propName => $ => {
 
   collection.find(item => {
     value = get(item, propName)
-    return !isEmpty(value)
+    return !isEmpty(value) || isNumber(value) || isBoolean(value)
   })
 
-  return value ? decodeHTML(value) : value
+  return isString(value) ? decodeHTML(value) : value
 }
 
 const image = (value, opts) => {
