@@ -41,7 +41,7 @@
     "parse-proxy-uri": "latest",
     "pretty-ms": "latest",
     "time-span": "4",
-    "unique-random-array": "2"
+    "unique-random-array": "3"
   },
   "engines": {
     "node": ">= 12"
